@@ -6,20 +6,111 @@ output:
 ---
 
 
-## Loading and preprocessing the data
+## Loading and preprocessing the data:
+```{r, echo = TRUE}
+df <- read.csv("data/activity.csv", sep = ",")
+```
+Looking at the data:
+```{r}
+head(df)
+```
+There are 3 varialbes: steps, data and interval.
 
 
 
 ## What is mean total number of steps taken per day?
+```{r, echo = TRUE}
+steps.date <- with(df, tapply(steps, date, sum, na.rm = TRUE))
+steps.date <- data.frame(date = names(steps.date), steps = steps.date)
+
+cat("The mean of total number of steps taken per day is: ", mean(steps.date$steps))
+cat("The median of total number of steps taken per day is: ", median(steps.date$steps) )
+library(ggplot2)
+g <- ggplot(steps.date, aes(steps))
+g + geom_histogram()
+
+
+```
 
 
 
 ## What is the average daily activity pattern?
+```{r, echo= TRUE}
+# calculate the average of steps per day:
+steps.interval <- with(df, tapply(steps, interval, mean, na.rm = TRUE))
+steps.interval <- data.frame(interval = names(steps.interval), steps = steps.interval)
+plot(steps.interval$interval,
+     steps.interval$steps, 
+     type = "l",
+     xlab = "5-minute interval",
+     ylab = "averaged steps across all days",
+     main = "Average daily activity pattern"
+     )
+index <- which(steps.interval$steps == max(steps.interval$steps)) 
+max.interval <- steps.interval$interval[index]
+cat("The interval contains the maximum number of steps is: ", max.interval)
+```
+
+
 
 
 
 ## Imputing missing values
 
+```{r, echo = TRUE}
+# missing value:
+df1 <- df
+num.missing = apply(df1, 2, function(x) sum(is.na(x)))
+
+print(num.missing)
+
+
+# fill missing value: 
+na.index <- which(is.na(df1$steps) == TRUE)
+for (i  in na.index) {
+  interval <- df1$interval[i]
+  tem <- which(steps.interval$interval == 5)
+  m <- steps.interval$steps[tem]
+  df1$steps[i] <- m
+}
+
+# make histogram:
+steps.date1 <- with(df1, tapply(steps, date, sum))
+steps.date1 <- data.frame(date = names(steps.date1), steps = steps.date1)
+
+h <- ggplot(steps.date1, aes(steps))
+h + geom_histogram()
+
+cat("The mean of total number of steps taken per day is: ", mean(steps.date1$steps))
+cat("The median of total number of steps taken per day is: ", median(steps.date1$steps))
+
+```
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r, echo = TRUE}
+# we will use df1 -  no missing value for this part.
+df1$date <- as.Date(df1$date)
+
+library(lubridate)
+df1$day <- wday(df1$date, label = TRUE)
+
+
+df1$day <- gsub("Mon|Tue|Wed|Thu|Fri", "weekday", df1$day)
+df1$day <- gsub("Sat|Sun", "weekend", df1$day)
+
+# calculate sum steps according to interval and day
+steps.interval1 <- tapply(df1$steps, list(df1$interval, df1$day), FUN = sum)
+steps.interval1 <- data.frame(interval = row.names(steps.interval1), steps = steps.interval1)
+
+
+
+library(tidyr)
+steps.interval1 <- gather(steps.interval1, key = "day", value = "steps", -interval)
+steps.interval1$interval <- as.numeric(steps.interval1$interval)
+
+
+k <- ggplot(steps.interval1, aes(interval, steps))
+k + geom_line() +  facet_grid(rows = vars(day))
+```
+
